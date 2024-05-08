@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Football Head-to-Head Statistics</title>
+  <!-- Bootstrap CSS -->
+  <link href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet">
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    #summary {
+      text-align: center;
+      margin-top: 50px;
+    }
+    .statistics {
+      display: flex;
+      justify-content: space-between;
+    }
+    .statistics .column {
+      flex-basis: 48%;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1 class="text-center">Football Head-to-Head Statistics Summary</h1>
+    <div class="row">
+      <div class="col-md">
+        <h2>Liverpool</h2>
+        <!-- Placeholder for column 1 content -->
+        <canvas id="chartTeam1"></canvas>
+        <canvas id="attackingTeam1"></canvas>
+        <div id="playerStatistic1"></div>
+      </div>
+      <div class="col-md">
+        <div id="summary"></div>
+      </div>
+      <div class="col-md">
+        <h2>Everton</h2>
+        <!-- Placeholder for column 2 content -->
+        <canvas id="chartTeam2"></canvas>
+        <div id="statisticsTeam2"></div>
+        <canvas id="attackingTeam2"></canvas>
+        <div id="playerStatistic2"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Bootstrap JS (Optional, if you need JavaScript features from Bootstrap) -->
+  <script src="https://code.jquery.com/jquery-3.5.1.min.js"></script>
+  <script>
+    $(document).ready(function() {
+      
+      // AJAX request to the API endpoint for Team 1
+      $.ajax({
+        url: 'http://localhost:5000/goal-differences?from_date=2023-08-12&to_date=2024-05-02&team=Liverpool',
+        type: 'GET',
+        dataType: 'json',
+        success: function(response) {
+          drawChart('chartTeam1', response);
+        },
+        error: function(xhr, status, error) {
+          console.error('Error fetching data for Team 1:', error);
+          $('#chartTeam1').html('<p>Error fetching data. Please try again later.</p>');
+        }
+      });
+
+      // AJAX request to the API endpoint for Team 2
+      $.ajax({
+        url: 'http://localhost:5000/goal-differences?from_date=2023-08-12&to_date=2024-05-02&team=Everton',
+        type: 'GET',
+        dataType: 'json',
+        success: function(response) {
+          drawChart('chartTeam2', response);
+        },
+        error: function(xhr, status, error) {
+          console.error('Error fetching data for Team 2:', error);
+          $('#chartTeam2').html('<p>Error fetching data. Please try again later.</p>');
+        }
+      });
+
+      // Function to draw chart
+      function drawChart(canvasId, data) {
+        const labels = Object.keys(data);
+        const values = Object.values(data);
+
+        const ctx = document.getElementById(canvasId).getContext('2d');
+        const chart = new Chart(ctx, {
+          type: 'line',
+          data: {
+            labels: labels,
+            datasets: [{
+              label: 'Goal Difference',
+              data: values,
+              backgroundColor: 'rgba(54, 162, 235, 0.2)',
+              borderColor: 'rgba(54, 162, 235, 1)',
+              borderWidth: 1
+            }]
+          },
+          options: {
+            scales: {
+              yAxes: [{
+                ticks: {
+                  beginAtZero: false
+                }
+              }]
+            }
+          }
+        });
+      }
+
+
+      // AJAX request to the API endpoint
+      $.ajax({
+        url: 'http://localhost:5000/head-to-head?from_date=2023-08-12&to_date=2024-05-02&team1=Liverpool&team2=Everton',
+        type: 'GET',
+        dataType: 'json',
+        success: function(response) {
+          // Extract team names
+          const team1 = response.matches[0].match_hometeam_name;
+          const team2 = response.matches[0].match_awayteam_name;
+
+          // Extract summary data
+          const summary = response.summary;
+
+          // Construct HTML for summary
+          let summaryHTML = '<h2>Summary</h2>';
+          summaryHTML += '<div class="table-responsive">';
+          summaryHTML += '<table class="table">';
+          summaryHTML += '<tr><th></th><th>' + team1 + '</th><th>' + team2 + '</th></tr>';
+          summaryHTML += '<tr><td>Total matches played</td><td>' + response.matches.length + '</td><td>' + response.matches.length + '</td></tr>';
+          summaryHTML += '<tr><td>Average ball possession</td><td>' + summary.avg_ball_possession[team1].toFixed(2) + '%</td><td>' + summary.avg_ball_possession[team2].toFixed(2) + '%</td></tr>';
+          summaryHTML += '<tr><td>Total goals scored</td><td>' + summary.total_goals[team1] + '</td><td>' + summary.total_goals[team2] + '</td></tr>';
+          summaryHTML += '<tr><td>Total shots</td><td>' + summary.total_shots[team1] + '</td><td>' + summary.total_shots[team2] + '</td></tr>';
+          summaryHTML += '<tr><td>Win count</td><td>' + summary.win_count[team1] + '</td><td>' + summary.win_count[team2] + '</td></tr>';
+          summaryHTML += '<tr><td>Yellow cards</td><td>' + summary.yellow_cards[team1] + '</td><td>' + summary.yellow_cards[team2] + '</td></tr>';
+          summaryHTML += '</table>';
+          summaryHTML += '</div>';
+
+          // Display summary in the center div
+          $('#summary').html(summaryHTML);
+
+          // Draw chart for Team 1
+          // drawChart('chartTeam1', response.team1_goal_differences);
+
+          // Draw chart for Team 2
+          // drawChart('chartTeam2', response.team2_goal_differences);
+
+          // Display statistics table for Team 1
+          // displayStatistics('statisticsTeam1', response.team1_statistics);
+
+          // // Display statistics table for Team 2
+          // displayStatistics('statisticsTeam2', response.team2_statistics);
+        },
+        error: function(xhr, status, error) {
+          console.error('Error fetching data:', error);
+          $('#summary').html('<p>Error fetching data. Please try again later.</p>');
+        }
+      });
+
+      // Function to draw chart
+      function drawChart(canvasId, data) {
+        const labels = Object.keys(data);
+        const values = Object.values(data);
+
+        const ctx = document.getElementById(canvasId).getContext('2d');
+        const chart = new Chart(ctx, {
+          type: 'line',
+          data: {
+            labels: labels,
+            datasets: [{
+              label: 'Goal Difference',
+              data: values,
+              backgroundColor: 'rgba(54, 162, 235, 0.2)',
+              borderColor: 'rgba(54, 162, 235, 1)',
+              borderWidth: 1
+            }]
+          },
+          options: {
+            scales: {
+              yAxes: [{
+                ticks: {
+                  beginAtZero: false
+                }
+              }]
+            }
+          }
+        });
+      }
+
+      // Function to display statistics table
+      function displayStatistics(containerId, statistics) {
+        let statsHTML = '<h2>Statistics</h2>';
+        statsHTML += '<div class="table-responsive">';
+        statsHTML += '<table class="table">';
+        for (const [statistic, values] of Object.entries(statistics)) {
+          statsHTML += '<tr><td>' + statistic + '</td><td>' + values.team1 + '</td><td>' + values.team2 + '</td></tr>';
+        }
+        statsHTML += '</table>';
+        statsHTML += '</div>';
+        $('#' + containerId).html(statsHTML);
+      }
+
+      // Function to fetch data and display the chart
+      function displayAttackingStatsChart(canvasId, teamName) {
+        // AJAX request to the API endpoint
+        $.ajax({
+          url: 'http://localhost:5000/attacking-stats?from_date=2023-08-12&to_date=2024-05-02&team='+teamName,
+          type: 'GET',
+          dataType: 'json',
+          success: function(response) {
+            // Extracting data from the response
+            const weeks = Object.keys(response);
+            const effectivenessData = [];
+            const shotOnGoalData = [];
+            const totalShotsData = [];
+
+            // Iterating over the response to populate data arrays
+            weeks.forEach(function(week) {
+              const weekData = response[week];
+              effectivenessData.push(weekData.effectiveness);
+              shotOnGoalData.push(weekData.shot_on_goal);
+              totalShotsData.push(weekData.total_shots);
+            });
+
+            // Drawing the chart
+            const ctx = document.getElementById(canvasId).getContext('2d');
+            const chart = new Chart(ctx, {
+              type: 'line',
+              data: {
+                labels: weeks,
+                datasets: [
+                  {
+                    label: 'Effectiveness',
+                    data: effectivenessData,
+                    borderColor: 'blue',
+                    backgroundColor: 'rgba(0, 0, 255, 0.1)',
+                    borderWidth: 1
+                  },
+                  {
+                    label: 'Shot on Goal',
+                    data: shotOnGoalData,
+                    borderColor: 'green',
+                    backgroundColor: 'rgba(0, 255, 0, 0.1)',
+                    borderWidth: 1
+                  },
+                  {
+                    label: 'Total Shots',
+                    data: totalShotsData,
+                    borderColor: 'red',
+                    backgroundColor: 'rgba(255, 0, 0, 0.1)',
+                    borderWidth: 1
+                  }
+                ]
+              },
+              options: {
+                scales: {
+                  yAxes: [{
+                    ticks: {
+                      beginAtZero: true
+                    }
+                  }]
+                }
+              }
+            });
+          },
+          error: function(xhr, status, error) {
+            console.error('Error fetching attacking stats:', error);
+            // Displaying error message if fetching fails
+            const ctx = document.getElementById('attackingStatsChart').getContext('2d');
+            ctx.fillText('Error fetching attacking stats. Please try again later.', 50, 50);
+          }
+        });
+      }
+
+      function formatKey(key) {
+      // Remove "player_" prefix and capitalize the first letter
+      return key.replace('player_', '').charAt(0).toUpperCase() + key.replace('player_', '').slice(1).replace(/_/g, ' ');
+    }
+
+    // Function to display player statistics in a vertical table
+    function displayPlayerStatistics(ph, data) {
+      let tableHTML = '<table class="table">';
+      for (const key in data) {
+        tableHTML += '<tr><td><strong>' + formatKey(key) + '</strong></td><td>' + data[key] + '</td></tr>';
+      }
+      tableHTML += '</table>';
+
+      document.getElementById(ph).innerHTML = tableHTML;
+    }
+
+      // Call the function to display the chart
+      displayAttackingStatsChart("attackingTeam1", "Liverpool");
+      displayAttackingStatsChart("attackingTeam2", "Everton");
+
+
+      $.ajax({
+        url: 'http://localhost:5000/player-stats?from_date=2024-04-27&to_date=2024-04-28&player=Mohamed Salah',
+        type: 'GET',
+        dataType: 'json',
+        success: function(response) {
+          displayPlayerStatistics("playerStatistic1", response[35]);
+        },
+        error: function(xhr, status, error) {
+          console.error('Error fetching data:', error);
+          $('#summary').html('<p>Error fetching data. Please try again later.</p>');
+        }
+      });
+
+      
+
+    $.ajax({
+        url: 'http://localhost:5000/player-stats?from_date=2024-04-27&to_date=2024-04-28&player=Abdoulaye Doucouré',
+        type: 'GET',
+        dataType: 'json',
+        success: function(response) {
+          displayPlayerStatistics("playerStatistic2", response[35]);
+        },
+        error: function(xhr, status, error) {
+          console.error('Error fetching data:', error);
+          $('#summary').html('<p>Error fetching data. Please try again later.</p>');
+        }
+      });
+    });
+  </script>
+</body>
+</html>

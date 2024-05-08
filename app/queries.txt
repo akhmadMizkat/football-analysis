@@ -1,0 +1,90 @@
+POST /footballapi.com-events-statistics-v2/_search
+{
+  "size": 0,
+  "query": {
+      "bool": {
+        "must": [
+          { "term": {"league_name": "Premier League"} },
+          { "term": {"match_team_name": "Arsenal"} }
+        ]
+      }
+    },
+  "aggs": {
+    "match_day": {
+      "terms": { "field": "match_round", "size": 50 },
+      "aggs": {
+        "goal_diff": {
+            "nested" : {
+                "path": "player_stats"
+            },
+            "aggs": {
+                "sum": {
+                    "field": "player_stats.total_shots"
+                }
+            }
+        }
+      }
+    }
+  }
+}
+
+{
+  "size": 0,
+  "query": {
+      "bool": {
+        "must": [
+          { "term": {"league_name": "Premier League"} },
+          { "term": {"match_team_name": "Arsenal"} }
+        ]
+      }
+    },
+  "aggs": {
+    "match_day": {
+      "terms": { "field": "match_round", "size": 50 },
+      "aggs": {
+        "attacks": {
+            "nested" : {
+              "path": "player_stats"
+            },
+            "aggs": {
+                "total_shots": {
+                  "sum": {
+                    "field": "player_stats.player_total_shots"
+                  }  
+              },
+              "shots_on_goal": {
+                  "sum": {
+                    "field": "player_stats.player_shots_on_goal"
+                  }  
+              }
+            }
+        }
+      }
+    }
+  }
+}
+
+
+
+POST /footballapi.com-events-statistics-v2/_search
+{
+"size": 10,
+"_source": ["match_round"],
+"query": {
+    "bool": {
+        "must": [
+          {
+            "nested": {
+              "path":"player_stats",
+              "query": {
+                "term": {
+                  "player_stats.player_name": "Nathan Redmond"
+                }
+              },
+              "inner_hits": {}
+            }
+          }
+        ]
+    }
+  }
+}
