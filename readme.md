@@ -32,9 +32,9 @@ After you run the script before, now run update_team_stat.py to append more deta
 1. You can start the API by going under `app/` folder and execute `python app.py`
 2. You can access the front end on http://localhost:5000/
 
-# STREAMLIT
+# Streamlit
 1. Go to templates/streamlit.py
-2. For each section for Head-to-Head, Team_Stat and Player_stat, add the code to each function respectfully
+2. For each section such as : Head-to-Head, Team_Stat and Player_stat, add the code to each function respectfully
 ```
 def head_to_head():
     st.header("Head to Head")
@@ -44,7 +44,7 @@ def player_analysis():
     st.header("Player Analysis")
     # Add your code for the Player Analysis page here
 ```
-3. The Streamlit for Team Analysis are already dynamic, we can choose what team to be shown from dropdown menu provided
+3. We can choose what team to be shown from dropdown menu provided in Team Analysis page
 
-# MACHINE LEARNING
-1. The machine learning model in Team Analysis used for Goal Difference Forecasting. The model use ARIMA architecture to forecast
+# Machine Learning
+1. The machine learning model in Team Analysis used to forecast team Goal Difference. The model use ARIMA method to forecast
