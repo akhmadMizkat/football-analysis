@@ -34,7 +34,7 @@ After you run the script before, now run update_team_stat.py to append more deta
 
 # Streamlit
 1. Go to templates/streamlit.py
-2. For each section such as : Head-to-Head, Team_Stat and Player_stat, add the code to each function respectfully
+2. For each section such as : Head-to-Head, Team_Stat and Player_stat, add the code to each function respectively
 ```
 def head_to_head():
     st.header("Head to Head")
