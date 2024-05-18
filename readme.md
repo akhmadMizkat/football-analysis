@@ -33,7 +33,7 @@ After you run the script before, now run update_team_stat.py to append more deta
 2. You can access the front end on http://localhost:5000/
 
 # Streamlit
-1. Go to templates/streamlit.py
+1. Go to app/streamlit.py
 2. For each section such as : Head-to-Head, Team_Stat and Player_stat, add the code to each function respectively
 ```
 def head_to_head():
