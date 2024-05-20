@@ -7,12 +7,12 @@ import os
 
 load_dotenv()
 
-url = f"https://apiv3.apifootball.com/?action=get_events&from=2018-03-01&to=2023-08-12&league_id=152&match_live=0&timezone=Asia/Jakarta&APIkey={os.environ.get("FOOTBALL_API_KEY")}"
+url = f"https://apiv3.apifootball.com/?action=get_events&from=2019-03-01&to=2023-08-12&league_id=152&withPlayerStats=0&match_live=0&timezone=Asia/Jakarta&APIkey={os.environ.get('FOOTBALL_API_KEY')}"
 
 # Connect to Elasticsearch with SSL certificate verification disabled
 client = Elasticsearch("https://localhost:9200", api_key=(os.environ.get("ELASTIC_API_KEY")), verify_certs=False)
 
-response = requests.get(url)
+response = requests.get(url, timeout=120)
 
 if response.status_code == 200:
     data = response.json()
