@@ -1,11 +1,15 @@
 import requests
 from elasticsearch import Elasticsearch
+import os
+import dotenv
+
+dotenv.load_dotenv("../.env")
 
 # Define the URL of the API endpoint
 url = "https://apiv3.apifootball.com/?action=get_standings&league_id=152&APIkey=b88b65156b6108c1af6febdbbd8e52ae8c7035b0f9609943a735a36a19d43391"
 
 # Connect to Elasticsearch with SSL certificate verification disabled
-client = Elasticsearch("https://localhost:9200", api_key=("FS_3j44BzwJTVWm0LVLl", "32Gr3iKaRUSky6xgi-td2w"), verify_certs=False)
+client = Elasticsearch("https://localhost:9200", api_key=(os.environ.get("ELASTIC_API_KEY")), verify_certs=False)
 
 # Send a GET request to the API endpoint
 response = requests.get(url)
