@@ -1,18 +1,17 @@
-from flask import Flask, request, render_template
+from flask import Flask, request, render_template, jsonify
 from elasticsearch import Elasticsearch
 from datetime import datetime
 from dotenv import load_dotenv
 import os
 from datetime import datetime
-import json
 import numpy as np
 from statsmodels.tsa.arima.model import ARIMA
 import pandas as pd
-import jsonify
 load_dotenv('../.env')
 
+print(os.environ.get("ELASTIC_API_KEY"))
 app = Flask(__name__)
-es = Elasticsearch("https://localhost:9200", api_key=(os.environ.get("ELASTIC_API_KEY")), verify_certs=False)
+es = Elasticsearch("https://localhost:9200", api_key=("VWNCd2pJOEIwbWNzVlFXcGhkUXc6TkJWSktjbXdUR1c4ZFpySlJmVC1mZw=="), verify_certs=False)
 
 def normalize_team_name(team_name):
     if 'Bournemouth' in team_name:
@@ -114,8 +113,8 @@ def get_matches():
             ball_possession[data['match_hometeam_name']]['matches'] += 1
             ball_possession[data['match_awayteam_name']]['total'] += int(statistics['Ball Possession']['away'].rstrip('%'))
             ball_possession[data['match_awayteam_name']]['matches'] += 1
-        total_goals[home_team] += int(data['match_hometeam_ft_score'])
-        total_goals[away_team] += int(data['match_awayteam_ft_score'])
+        total_goals[home_team] += int(data['match_hometeam_ft_score']) if data['match_hometeam_ft_score'] != "" else 0
+        total_goals[away_team] += int(data['match_awayteam_ft_score']) if data['match_awayteam_ft_score'] != "" else 0
         if 'Shots Total' in statistics:
             total_shots[home_team] += int(statistics['Shots Total']['home'])
             total_shots[away_team] += int(statistics['Shots Total']['away'])
@@ -420,7 +419,7 @@ def recent_match():
         }
     }
 
-    res = es.search(index="search-apifootball", body=query)
+    res = es.search(index="footballapi.com-events-statistics-v1", body=query)
     matches = [hit['_source'] for hit in res['hits']['hits']]
 
     # Check if all attributes exist in the data
@@ -437,7 +436,7 @@ def recent_match():
 @app.route('/goal-differencesv2', methods=['GET'])
 def goal_differencesv2():
     team = request.args.get('team')
-    index_name = "search-footballapi.com-events-statistics-v3"
+    index_name = "search-footballapi.com-events-statistics-v2"
 
     query = {
         "size": 10000,
@@ -474,7 +473,7 @@ def goal_differencesv2():
 @app.route('/team-stat', methods=['GET'])
 def team_stat():
     team = request.args.get('team')
-    index_name = "search-footballapi.com-events-statistics-v3"
+    index_name = "search-footballapi.com-events-statistics-v2"
 
     query = {
         "size": 10000,
@@ -536,6 +535,342 @@ def all_teams():
     res = es.search(index="search-teams_stat_v1", body={"size": 10000,"query": {"match_all": {}}})
     team_names = [doc['_source']['team_name'] for doc in res['hits']['hits']]
     return jsonify(team_names)
+
+@app.route('/player-latest-stats', methods=['GET'])
+def get_player_latest_stats():
+    player = request.args.get('player')
+
+    query = {
+        "size": 1,
+        "_source": {"excludes": "*"}, 
+        "query": {
+            "nested": {
+            "path": "players",
+            "inner_hits": {       
+                "_source": [
+                "players.*"
+                ]
+            },
+            "query": {
+                "bool": {
+                "must": [
+                    {
+                    "term": {
+                        "players.player_name": player
+                    }
+                    }
+                ]
+                }
+            }
+            }
+        }
+    }
+
+    index_name = "search-teams_stat_v2"
+    res = es.search(index=index_name, body=query)
+
+    return res['hits']['hits'][0]["inner_hits"]["players"]["hits"]["hits"][0]["_source"]
+
+@app.route('/gk-stats', methods=['GET'])
+def get_gk_stats():
+    query = {
+        "size": 1000,
+        "_source": {"includes": ["team_name", "team_badge"]}, 
+        "query": {
+            "nested": {
+            "path": "players",
+            "inner_hits": {
+                "_source": [
+                    "players.player_name",
+                    "players.player_rating",
+                    "players.player_image",
+                    "players.player_age",
+                    "players.player_match_played",
+                    "players.player_goals_conceded",
+                    "players.player_clearances",
+                    "players.player_saves",
+                    "players.player_inside_box_saves",
+                    "players.player_duels_won"
+                ]
+            },
+            "query": {
+                "bool": {
+                "must": [
+                    {
+                    "range": {
+                        "players.player_match_played": {
+                        "gte": 5
+                        }
+                    }
+                    },
+                    {
+                    "term": {
+                        "players.player_type": "Goalkeepers"
+                    }
+                    }
+                ]
+                }
+            }
+            }
+        }
+    }
+
+    index_name = "search-teams_stat_v2"
+    res = es.search(index=index_name, body=query)
+    stats = []
+    for h in res['hits']['hits']:
+        for i in h["inner_hits"]["players"]["hits"]["hits"]:
+            i["_source"]["team_name"] = h["_source"]["team_name"]
+            i["_source"]["team_badge"] = h["_source"]["team_badge"]
+            stats.append(i["_source"])
+
+    return stats
+
+@app.route('/defender-stats', methods=['GET'])
+def get_defender_stats():
+    query = {
+        "size": 1000,
+        "_source": {"includes": ["team_name", "team_badge"]}, 
+        "query": {
+            "nested": {
+            "path": "players",
+            "inner_hits": {
+                
+                "_source": [
+                "players.player_name",
+                "players.player_image",
+                "players.player_match_played",
+                "players.player_rating",
+                "players.player_age",
+                "players.player_fouls_committed",
+                "players.player_red_cards",
+                "players.player_dispossesed",
+                "players.player_passes",
+                "players.player_clearances",
+                "players.player_blocks",
+                "players.player_interceptions",
+                "players.player_duels_total",
+                "players.player_crosses_total",
+                "players.player_pen_comm",
+                "players.player_tackles",
+                "players.player_yellow_cards",
+                "players.player_duels_won"
+                ]
+            },
+            "query": {
+                "bool": {
+                "must": [
+                    {
+                    "range": {
+                        "players.player_match_played": {
+                        "gte": 5
+                        }
+                    }
+                    },
+                    {
+                    "term": {
+                        "players.player_type": "Defenders"
+                    }
+                    }
+                ]
+                }
+            }
+            }
+        }
+        }
+
+    index_name = "search-teams_stat_v2"
+    res = es.search(index=index_name, body=query)
+    stats = []
+    for h in res['hits']['hits']:
+        for i in h["inner_hits"]["players"]["hits"]["hits"]:
+            i["_source"]["team_name"] = h["_source"]["team_name"]
+            i["_source"]["team_badge"] = h["_source"]["team_badge"]
+            stats.append(i["_source"])
+
+    return stats
+
+@app.route('/midfielders-stats', methods=['GET'])
+def get_midfielders_stats():
+    query = {
+    "size": 1000,
+    "_source": {"includes": ["team_name", "team_badge"]}, 
+    "query": {
+        "nested": {
+        "path": "players",
+        "inner_hits": {
+            
+            "_source": [
+            "players.player_name",
+            "players.player_image",
+            "players.player_match_played",
+            "players.player_rating",
+            "players.player_age",
+            "players.player_fouls_committed",
+            "players.player_red_cards",
+            "players.player_dispossesed",
+            "players.player_passes",
+            "players.player_clearances",
+            "players.player_blocks",
+            "players.player_interceptions",
+            "players.player_duels_total",
+            "players.player_crosses_total",
+            "players.player_goals",
+            "players.player_assists",
+            "players.player_tackles",
+            "players.player_yellow_cards",
+            "players.player_duels_won",
+            "players.player_dribble_attempts",
+            "players.player_duels_total",
+            "players.player_crosses_total",
+            "players.player_passes_accuracy",
+            "players.player_dribble_succ",
+            "players.player_shots_total",
+            "players.player_key_passes"
+            ]
+        },
+        "query": {
+            "bool": {
+            "must": [
+                {
+                "range": {
+                    "players.player_match_played": {
+                    "gte": 5
+                    }
+                }
+                },
+                {
+                "term": {
+                    "players.player_type": "Midfielders"
+                }
+                }
+            ]
+            }
+        }
+        }
+    }
+    }
+
+    index_name = "search-teams_stat_v2"
+    res = es.search(index=index_name, body=query)
+    stats = []
+    for h in res['hits']['hits']:
+        for i in h["inner_hits"]["players"]["hits"]["hits"]:
+            i["_source"]["team_name"] = h["_source"]["team_name"]
+            i["_source"]["team_badge"] = h["_source"]["team_badge"]
+            stats.append(i["_source"])
+
+    return stats
+
+@app.route('/forwards-stats', methods=['GET'])
+def get_forwards_stats():
+    query = {
+        "size": 1000,
+        "_source": {"includes": ["team_name", "team_badge"]},  
+        "query": {
+            "nested": {
+            "path": "players",
+            "inner_hits": {
+                "_source": [
+                "players.player_name",
+                "players.player_image",
+                "players.player_match_played",
+                "players.player_rating",
+                "players.player_age",
+                "players.player_fouls_committed",
+                "players.player_red_cards",
+                "players.player_dispossesed",
+                "players.player_passes",
+                "players.player_clearances",
+                "players.player_blocks",
+                "players.player_interceptions",
+                "players.player_duels_total",
+                "players.player_crosses_total",
+                "players.player_goals",
+                "players.player_assists",
+                "players.player_tackles",
+                "players.player_yellow_cards",
+                "players.player_duels_won",
+                "players.player_dribble_attempts",
+                "players.player_duels_total",
+                "players.player_crosses_total",
+                "players.player_passes_accuracy",
+                "players.player_dribble_succ",
+                "players.player_shots_total",
+                "players.player_key_passes",
+                "players.player_pen_missed",
+                "players.player_pen_won",
+                "players.player_pen_scored"
+                ]
+            },
+            "query": {
+                "bool": {
+                "must": [
+                    {
+                    "range": {
+                        "players.player_match_played": {
+                        "gte": 5
+                        }
+                    }
+                    },
+                    {
+                    "term": {
+                        "players.player_type": "Forwards"
+                    }
+                    }
+                ]
+                }
+            }
+            }
+        }
+        }
+
+    index_name = "search-teams_stat_v2"
+    res = es.search(index=index_name, body=query)
+    stats = []
+    for h in res['hits']['hits']:
+        for i in h["inner_hits"]["players"]["hits"]["hits"]:
+            i["_source"]["team_name"] = h["_source"]["team_name"]
+            i["_source"]["team_badge"] = h["_source"]["team_badge"]
+            stats.append(i["_source"])
+
+    return stats
+
+@app.route('/search-players', methods=['GET'])
+def search_players():
+    player_type = request.args.get('type')
+    query = {
+    "size": 1000,
+    "_source": {"includes": ["team_name", "team_badge"]}, 
+    "query": {
+        "nested": {
+        "path": "players",
+        "inner_hits": {
+            
+            "_source": [
+            "players.player_name",
+            "players.player_key"
+            ]
+        },
+        "query": {
+            "match": 
+                {"players.player_type": player_type}
+        }
+        }
+    }
+    }
+
+    index_name = "search-teams_stat_v2"
+    res = es.search(index=index_name, body=query)
+    players = []
+    for h in res['hits']['hits']:
+        for i in h["inner_hits"]["players"]["hits"]["hits"]:
+            i["_source"]["team_name"] = h["_source"]["team_name"]
+            i["_source"]["team_badge"] = h["_source"]["team_badge"]
+            players.append(i["_source"])
+
+    return players
+
 @app.route('/')
 def home():
     return render_template('index.html')
