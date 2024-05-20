@@ -6,10 +6,25 @@ import numpy as np
 import plotly.graph_objects as go
 from sklearn.preprocessing import Normalizer
 import json
+import plotly.express as px
+import unidecode
+from typing import List
+from streamlit_searchbox import st_searchbox
 # from fbprophet import Prophet
 # Set page configuration
 # Define the pages
+
+def remove_accents(text: str) -> str:
+    return unidecode.unidecode(text)
+
 st.set_page_config(layout="centered")
+gk_list = pd.DataFrame(requests.get("http://localhost:5000/search-players?type=Goalkeepers").json())
+def_list = pd.DataFrame(requests.get("http://localhost:5000/search-players?type=Defenders").json())
+mid_list = pd.DataFrame(requests.get("http://localhost:5000/search-players?type=Midfielders").json())
+fw_list = pd.DataFrame(requests.get("http://localhost:5000/search-players?type=Forwards").json())
+
+
+
 pages = ["Head to Head", "Team Analysis", "Player Analysis"]
 
 # Create a dropdown menu in the sidebar to select the page
@@ -254,7 +269,634 @@ def team_analysis():
 
 def player_analysis():
     st.header("Player Analysis")
-    # Add your code for the Player Analysis page here
+    tab1, tab2, tab3, tab4 = st.tabs(["Goalkeepers", "Defenders", "Midfielders", "Forwards"])
+    
+    with tab1:
+        st.subheader('Top 3 GKs')
+        # Fetch the team names from the API
+        gk_stats = requests.get('http://localhost:5000/gk-stats').json()
+        df_gk = pd.DataFrame(gk_stats)
+        df_gk["player_saves"] =  pd.to_numeric(df_gk["player_saves"])
+        df_gk["player_match_played"] =  pd.to_numeric(df_gk["player_match_played"])
+        df_gk["player_goals_conceded"] =  pd.to_numeric(df_gk["player_goals_conceded"])
+        df_gk["match_conceded_ratio"] = df_gk["player_match_played"]/df_gk["player_goals_conceded"]
+        
+        top_3_gk = df_gk.sort_values(by='match_conceded_ratio', ascending=False).head(3)
+        
+        top_gk_cols = st.columns(3)
+        
+        for i in range(3):
+            with top_gk_cols[i]:
+                player = top_3_gk.iloc[i]
+                responsepic = requests.get(player['player_image'])
+                if responsepic.status_code == 200:
+                    st.image(player['player_image'])
+                else:
+                    st.image('default.png',width=150)
+                st.subheader(player['player_name'])
+                st.write(':shirt: Team:', player['team_name'])
+                st.write(':runner: Matches Played:', player['player_match_played'])
+                st.write(':star: Match & Goal Ratio:', round(player['match_conceded_ratio'], 2))
+    
+        fig = px.scatter(
+            df_gk,
+            x="player_match_played",
+            y="player_goals_conceded",
+            # size="player_saves",
+            color="player_saves",
+            hover_name="player_name",
+            log_x=True,
+            size_max=60,
+        )
+        st.plotly_chart(fig, theme="streamlit", use_container_width=True)
+
+        selected_gks = []
+        st.markdown("---")  # Add a line divider
+        st.subheader("Player Comparison")
+        with st.expander("Select Goalkeeper 1", expanded=True):               
+            selected_gk1 = st.selectbox('Select a player', [""]+gk_list["player_name"].to_list(), key="gk1")
+            col1, col2  = st.columns([1,3])
+
+            if selected_gk1 != "":
+                gk1 = df_gk[df_gk["player_name"] == selected_gk1].iloc[0]
+                selected_gks.append(gk1)
+                with col1:
+                    st.subheader(selected_gk1)
+                    responsepic = requests.get(gk1['player_image'])
+                    if responsepic.status_code == 200:
+                        st.image(gk1['player_image'])
+                    else:
+                        st.image('default.png',width=150)
+                    st.subheader(gk1["team_name"])
+
+                with col2:
+                    st.caption("📄 Information of Player")
+                    col_1, col_2, col_3, col_4 = st.columns(4)
+
+                    with col_1:
+                        st.metric("Age", gk1["player_age"], None)
+                        st.metric("Rating", gk1["player_rating"], None)
+
+                    with col_2:
+                        st.metric("Match Played", gk1["player_match_played"], None)
+                        st.metric("GC", gk1["player_goals_conceded"], help="Goal Conceded")
+
+                    with col_3:
+                        st.metric("Saves", gk1["player_saves"], None)
+                        st.metric("IBS", gk1["player_inside_box_saves"], help="Inside Box Saves")
+                    
+                    with col_4:
+                        st.metric("Clerances", gk1["player_clearances"], None)
+                        st.metric("Dules Won", gk1["player_duels_won"], None)
+        
+        with st.expander("Select Goalkeeper 2", expanded=True):               
+            selected_gk2 = st.selectbox('Select a player', [""]+gk_list["player_name"].to_list(), key="gk2")
+            col1, col2  = st.columns([1,3])
+
+            if selected_gk2 != "":
+                gk2 = df_gk[df_gk["player_name"] == selected_gk2].iloc[0]
+                selected_gks.append(gk2)
+                with col1:
+                    st.subheader(selected_gk2)
+                    responsepic = requests.get(gk2['player_image'])
+                    if responsepic.status_code == 200:
+                        st.image(gk2['player_image'])
+                    else:
+                        st.image('default.png',width=150)
+                    st.subheader(gk2["team_name"])
+
+                with col2:
+                    st.caption("📄 Information of Player")
+                    col_1, col_2, col_3, col_4 = st.columns(4)
+
+                    with col_1:
+                        st.metric("Age", gk2["player_age"], None)
+                        st.metric("Rating", gk2["player_rating"], None)
+
+                    with col_2:
+                        st.metric("Match Played", gk2["player_match_played"], None)
+                        st.metric("GC", gk2["player_goals_conceded"], help="Goal Conceded")
+
+                    with col_3:
+                        st.metric("Saves", gk2["player_saves"], None)
+                        st.metric("IBS", gk2["player_inside_box_saves"], help="Inside Box Saves")
+                    
+                    with col_4:
+                        st.metric("Clerances", gk2["player_clearances"], None)
+                        st.metric("Dules Won", gk2["player_duels_won"], None)
+        
+        ###### Radar Analytics #########################
+        categories = ['player_match_played', 'player_goals_conceded', 'player_saves', 'player_inside_box_saves', 'player_clearances', 'player_duels_won']
+        selected_players = selected_gks
+
+        fig = go.Figure()
+        colors=["blue", "orange"]
+        i = 0
+        for player_row in selected_players:
+            player_name = player_row['player_name']
+            values = [player_row[col] for col in categories]
+            
+            fig.add_trace(go.Scatterpolar(
+                r=values,
+                theta=categories,
+                fill='toself',
+                name=player_name,
+                marker = dict(color = colors[i]),
+            ))
+
+            i += 1
+
+        fig.update_layout(
+            polar=dict(
+                radialaxis=dict(
+                    visible=True,
+                )
+            ),
+            showlegend=True,  
+            legend=dict(
+                orientation="v", 
+                yanchor="top",  
+                y=1,  
+                xanchor="left",  
+                x=1.02,  
+            ),
+            width=750,  
+            height=520  
+        )
+
+        st.plotly_chart(fig, use_container_width=True)
+                    
+    with tab2:
+        st.subheader('Top 3 Defenders')
+        def_stats = requests.get('http://localhost:5000/defender-stats').json()
+        df_gk = pd.DataFrame(def_stats)
+        df_gk["player_match_played"] =  pd.to_numeric(df_gk["player_match_played"])
+        df_gk["player_fouls_committed"] =  pd.to_numeric(df_gk["player_fouls_committed"])
+        df_gk["player_clearances"] =  pd.to_numeric(df_gk["player_clearances"])
+        df_gk["cpm"] = df_gk["player_clearances"]/df_gk["player_match_played"]
+        
+        top_3_gk = df_gk.sort_values(by='cpm', ascending=False).head(3)
+        
+        top_gk_cols = st.columns(3)
+        
+        for i in range(3):
+            with top_gk_cols[i]:
+                player = top_3_gk.iloc[i]
+                responsepic = requests.get(player['player_image'])
+                if responsepic.status_code == 200:
+                    st.image(player['player_image'])
+                else:
+                    st.image('default.png',width=150)
+                st.subheader(player['player_name'])
+                st.write(':shirt: Team:', player['team_name'])
+                st.write(':runner: Matches Played:', player['player_match_played'])
+                st.write(':star: Clearence per Match:', round(player['cpm'], 2))
+    
+        fig = px.scatter(
+            df_gk,
+            x="player_match_played",
+            y="player_clearances",
+            # size="player_saves",
+            color="player_fouls_committed",
+            hover_name="player_name",
+            log_x=True,
+            size_max=60,
+        )
+        st.plotly_chart(fig, theme="streamlit", use_container_width=True)
+
+        selected_gks = []
+        st.markdown("---")  # Add a line divider
+        st.subheader("Player Comparison")
+        with st.expander("Select Defender 1", expanded=True):               
+            selected_gk1 = st.selectbox('Select a player', [""]+def_list["player_name"].to_list(), key="def1")
+            col1, col2  = st.columns([1,3])
+
+            if selected_gk1 != "":
+                gk1 = df_gk[df_gk["player_name"] == selected_gk1].iloc[0]
+                selected_gks.append(gk1)
+                with col1:
+                    st.subheader(selected_gk1)
+                    responsepic = requests.get(gk1['player_image'])
+                    if responsepic.status_code == 200:
+                        st.image(gk1['player_image'])
+                    else:
+                        st.image('default.png',width=150)
+                    st.subheader(gk1["team_name"])
+
+                with col2:
+                    st.caption("📄 Information of Player")
+                    col_1, col_2, col_3, col_4 = st.columns(4)
+
+                    with col_1:
+                        st.metric("Age", gk1["player_age"], None)
+                        st.metric("Rating", gk1["player_rating"], None)
+
+                    with col_2:
+                        st.metric("Match Played", gk1["player_match_played"], None)
+                        st.metric("Clearance", gk1["player_clearances"])
+
+                    with col_3:
+                        st.metric("Red Card", gk1["player_red_cards"], None)
+                        st.metric("Yellow Card", gk1["player_yellow_cards"])
+                    
+                    with col_4:
+                        st.metric("Duels Total", gk1["player_duels_total"], None)
+                        st.metric("Duels Won", gk1["player_duels_won"], None)
+        
+        with st.expander("Select Defender 2", expanded=True):               
+            selected_gk1 = st.selectbox('Select a player', [""]+def_list["player_name"].to_list(), key="def2")
+            col1, col2  = st.columns([1,3])
+
+            if selected_gk1 != "":
+                gk1 = df_gk[df_gk["player_name"] == selected_gk1].iloc[0]
+                selected_gks.append(gk1)
+                with col1:
+                    st.subheader(selected_gk1)
+                    responsepic = requests.get(gk1['player_image'])
+                    if responsepic.status_code == 200:
+                        st.image(gk1['player_image'])
+                    else:
+                        st.image('default.png',width=150)
+                    st.subheader(gk1["team_name"])
+
+                with col2:
+                    st.caption("📄 Information of Player")
+                    col_1, col_2, col_3, col_4 = st.columns(4)
+
+                    with col_1:
+                        st.metric("Age", gk1["player_age"], None)
+                        st.metric("Rating", gk1["player_rating"], None)
+
+                    with col_2:
+                        st.metric("Match Played", gk1["player_match_played"], None)
+                        st.metric("Clearance", gk1["player_clearances"])
+
+                    with col_3:
+                        st.metric("Red Card", gk1["player_red_cards"], None)
+                        st.metric("Yellow Card", gk1["player_yellow_cards"])
+                    
+                    with col_4:
+                        st.metric("Duels Total", gk1["player_duels_total"], None)
+                        st.metric("Duels Won", gk1["player_duels_won"], None)
+        
+        ###### Radar Analytics #########################
+        categories = ['player_match_played', 'player_clearances', 'player_red_cards', 'player_yellow_cards', 'player_duels_total', 'player_duels_won',
+                      'player_blocks', 'player_fouls_committed', 'player_interceptions', 'player_tackles']
+        selected_players = selected_gks
+
+        fig = go.Figure()
+        colors=["blue", "orange"]
+        i = 0
+        for player_row in selected_players:
+            player_name = player_row['player_name']
+            values = [player_row[col] for col in categories]
+            
+            fig.add_trace(go.Scatterpolar(
+                r=values,
+                theta=categories,
+                fill='toself',
+                name=player_name,
+                marker = dict(color = colors[i]),
+            ))
+
+            i += 1
+
+        fig.update_layout(
+            polar=dict(
+                radialaxis=dict(
+                    visible=True,
+                )
+            ),
+            showlegend=True,  
+            legend=dict(
+                orientation="v", 
+                yanchor="top",  
+                y=1,  
+                xanchor="left",  
+                x=1.02,  
+            ),
+            width=750,  
+            height=520  
+        )
+
+        st.plotly_chart(fig, use_container_width=True)
+
+    with tab3:
+        st.subheader('Top 3 Midfielders')
+        mid_stats = requests.get('http://localhost:5000/midfielders-stats').json()
+        df_players = pd.DataFrame(mid_stats)
+        df_players["player_match_played"] =  pd.to_numeric(df_players["player_match_played"])
+        df_players["player_key_passes"] =  pd.to_numeric(df_players["player_key_passes"])
+        df_players["player_passes"] =  pd.to_numeric(df_players["player_passes"])
+        df_players["kppm"] = df_players["player_key_passes"]/df_players["player_match_played"]
+        
+        top_3_gk = df_players.sort_values(by='kppm', ascending=False).head(3)
+        
+        top_gk_cols = st.columns(3)
+        
+        for i in range(3):
+            with top_gk_cols[i]:
+                player = top_3_gk.iloc[i]
+                responsepic = requests.get(player['player_image'])
+                if responsepic.status_code == 200:
+                    st.image(player['player_image'])
+                else:
+                    st.image('default.png',width=150)
+                st.subheader(player['player_name'])
+                st.write(':shirt: Team:', player['team_name'])
+                st.write(':runner: Matches Played:', player['player_match_played'])
+                st.write(':star: Key Passes per Match:', round(player['kppm'], 2))
+    
+        fig = px.scatter(
+            df_players,
+            x="player_match_played",
+            y="player_key_passes",
+            # size="player_saves",
+            color="player_passes",
+            hover_name="player_name",
+            log_x=True,
+            size_max=60,
+        )
+        st.plotly_chart(fig, theme="streamlit", use_container_width=True)
+
+        selected_gks = []
+        st.markdown("---")  # Add a line divider
+        st.subheader("Player Comparison")
+        with st.expander("Select Midfielder 1", expanded=True):               
+            selected_gk1 = st.selectbox('Select a player', [""]+mid_list["player_name"].to_list(), key="mid1")
+            col1, col2  = st.columns([1,3])
+
+            if selected_gk1 != "":
+                gk1 = df_players[df_players["player_name"] == selected_gk1].iloc[0]
+                selected_gks.append(gk1)
+                with col1:
+                    st.subheader(selected_gk1)
+                    responsepic = requests.get(gk1['player_image'])
+                    if responsepic.status_code == 200:
+                        st.image(gk1['player_image'])
+                    else:
+                        st.image('default.png',width=150)
+                    st.subheader(gk1["team_name"])
+
+                with col2:
+                    st.caption("📄 Information of Player")
+                    col_1, col_2, col_3, col_4 = st.columns(4)
+
+                    with col_1:
+                        st.metric("Age", gk1["player_age"], None)
+                        st.metric("Rating", gk1["player_rating"], None)
+
+                    with col_2:
+                        st.metric("Match Played", gk1["player_match_played"], None)
+                        st.metric("Passess Accurracy", gk1["player_passes_accuracy"])
+
+                    with col_3:
+                        st.metric("Total Passess", gk1["player_passes"], None)
+                        st.metric("Key Passess", gk1["player_key_passes"])
+                    
+                    with col_4:
+                        st.metric("Goals", gk1["player_goals"], None)
+                        st.metric("Assist", gk1["player_assists"], None)
+        
+        with st.expander("Select Midfielder 2", expanded=True):               
+            selected_gk1 = st.selectbox('Select a player', [""]+mid_list["player_name"].to_list(), key="mid2")
+            col1, col2  = st.columns([1,3])
+
+            if selected_gk1 != "":
+                gk1 = df_players[df_players["player_name"] == selected_gk1].iloc[0]
+                selected_gks.append(gk1)
+                with col1:
+                    st.subheader(selected_gk1)
+                    responsepic = requests.get(gk1['player_image'])
+                    if responsepic.status_code == 200:
+                        st.image(gk1['player_image'])
+                    else:
+                        st.image('default.png',width=150)
+                    st.subheader(gk1["team_name"])
+
+                with col2:
+                    st.caption("📄 Information of Player")
+                    col_1, col_2, col_3, col_4 = st.columns(4)
+
+                    with col_1:
+                        st.metric("Age", gk1["player_age"], None)
+                        st.metric("Rating", gk1["player_rating"], None)
+
+                    with col_2:
+                        st.metric("Match Played", gk1["player_match_played"], None)
+                        st.metric("Passess Accurracy", gk1["player_passes_accuracy"])
+
+                    with col_3:
+                        st.metric("Total Passess", gk1["player_passes"], None)
+                        st.metric("Key Passess", gk1["player_key_passes"])
+                    
+                    with col_4:
+                        st.metric("Goals", gk1["player_goals"], None)
+                        st.metric("Assist", gk1["player_assists"], None)
+        
+        ###### Radar Analytics #########################
+        categories = ['player_match_played', 'player_key_passes', 'player_dribble_attempts', 'player_dribble_succ', 'player_duels_total', 'player_duels_won',
+                      'player_goals', 'player_assists', 'player_shots_total']
+        selected_players = selected_gks
+
+        fig = go.Figure()
+        colors=["blue", "orange"]
+        i = 0
+        for player_row in selected_players:
+            player_name = player_row['player_name']
+            values = [player_row[col] for col in categories]
+            
+            fig.add_trace(go.Scatterpolar(
+                r=values,
+                theta=categories,
+                fill='toself',
+                name=player_name,
+                marker = dict(color = colors[i]),
+            ))
+
+            i += 1
+
+        fig.update_layout(
+            polar=dict(
+                radialaxis=dict(
+                    visible=True,
+                )
+            ),
+            showlegend=True,  
+            legend=dict(
+                orientation="v", 
+                yanchor="top",  
+                y=1,  
+                xanchor="left",  
+                x=1.02,  
+            ),
+            width=750,  
+            height=520  
+        )
+
+        st.plotly_chart(fig, use_container_width=True)
+    
+    with tab4:
+        st.subheader('Top 3 Forwards')
+        players_stats = requests.get('http://localhost:5000/forwards-stats').json()
+        df_players = pd.DataFrame(players_stats)
+        df_players["player_match_played"] =  pd.to_numeric(df_players["player_match_played"])
+        df_players["player_assists"] =  pd.to_numeric(df_players["player_assists"])
+        df_players["player_goals"] =  pd.to_numeric(df_players["player_goals"])
+        df_players["gapm"] = (df_players["player_assists"]+df_players["player_goals"])/df_players["player_match_played"]
+        
+        top_3_players = df_players.sort_values(by='gapm', ascending=False).head(3)
+        
+        top_pl_cols = st.columns(3)
+        
+        for i in range(3):
+            with top_pl_cols[i]:
+                player = top_3_players.iloc[i]
+                responsepic = requests.get(player['player_image'])
+                if responsepic.status_code == 200:
+                    st.image(player['player_image'])
+                else:
+                    st.image('default.png',width=150)
+                st.subheader(player['player_name'])
+                st.write(':shirt: Team:', player['team_name'])
+                st.write(':runner: Matches Played:', player['player_match_played'])
+                st.write(':star: Goal & Assisst per Match:', round(player['gapm'], 2))
+    
+        fig = px.scatter(
+            df_players,
+            x="player_match_played",
+            y="player_goals",
+            # size="player_saves",
+            color="gapm",
+            hover_name="player_name",
+            log_x=True,
+            size_max=60,
+        )
+        st.plotly_chart(fig, theme="streamlit", use_container_width=True)
+
+        selected_gks = []
+        st.markdown("---")  # Add a line divider
+        st.subheader("Player Comparison")
+        with st.expander("Select Forward 1", expanded=True):               
+            selected_gk1 = st.selectbox('Select a player', [""]+fw_list["player_name"].to_list(), key="fw1")
+            col1, col2  = st.columns([1,3])
+
+            if selected_gk1 != "":
+                gk1 = df_players[df_players["player_name"] == selected_gk1].iloc[0]
+                selected_gks.append(gk1)
+                with col1:
+                    st.subheader(selected_gk1)
+                    responsepic = requests.get(gk1['player_image'])
+                    if responsepic.status_code == 200:
+                        st.image(gk1['player_image'])
+                    else:
+                        st.image('default.png',width=150)
+                    st.subheader(gk1["team_name"])
+
+                with col2:
+                    st.caption("📄 Information of Player")
+                    col_1, col_2, col_3, col_4 = st.columns(4)
+
+                    with col_1:
+                        st.metric("Age", gk1["player_age"], None)
+                        st.metric("Rating", gk1["player_rating"], None)
+
+                    with col_2:
+                        st.metric("Match Played", gk1["player_match_played"], None)
+                        st.metric("Passess Accurracy", gk1["player_passes_accuracy"])
+
+                    with col_3:
+                        st.metric("Total Passess", gk1["player_passes"], None)
+                        st.metric("Key Passess", gk1["player_key_passes"])
+                    
+                    with col_4:
+                        st.metric("Goals", gk1["player_goals"], None)
+                        st.metric("Assist", gk1["player_assists"], None)
+        
+        with st.expander("Select Forward 2", expanded=True):               
+            selected_gk1 = st.selectbox('Select a player', [""]+fw_list["player_name"].to_list(), key="fw2")
+            col1, col2  = st.columns([1,3])
+
+            if selected_gk1 != "":
+                gk1 = df_players[df_players["player_name"] == selected_gk1].iloc[0]
+                selected_gks.append(gk1)
+                with col1:
+                    st.subheader(selected_gk1)
+                    responsepic = requests.get(gk1['player_image'])
+                    if responsepic.status_code == 200:
+                        st.image(gk1['player_image'])
+                    else:
+                        st.image('default.png',width=150)
+                    st.subheader(gk1["team_name"])
+
+                with col2:
+                    st.caption("📄 Information of Player")
+                    col_1, col_2, col_3, col_4 = st.columns(4)
+
+                    with col_1:
+                        st.metric("Age", gk1["player_age"], None)
+                        st.metric("Rating", gk1["player_rating"], None)
+
+                    with col_2:
+                        st.metric("Match Played", gk1["player_match_played"], None)
+                        st.metric("Passess Accurracy", gk1["player_passes_accuracy"])
+
+                    with col_3:
+                        st.metric("Total Passess", gk1["player_passes"], None)
+                        st.metric("Key Passess", gk1["player_key_passes"])
+                    
+                    with col_4:
+                        st.metric("Goals", gk1["player_goals"], None)
+                        st.metric("Assist", gk1["player_assists"], None)
+        
+        ###### Radar Analytics #########################
+        categories = ['player_match_played', 'player_key_passes', 'player_dribble_attempts', 'player_dribble_succ', 'player_duels_total', 'player_duels_won',
+                      'player_goals', 'player_assists', 'player_shots_total']
+        selected_players = selected_gks
+
+        fig = go.Figure()
+        colors=["blue", "orange"]
+        i = 0
+        for player_row in selected_players:
+            player_name = player_row['player_name']
+            values = [player_row[col] for col in categories]
+            
+            fig.add_trace(go.Scatterpolar(
+                r=values,
+                theta=categories,
+                fill='toself',
+                name=player_name,
+                marker = dict(color = colors[i]),
+            ))
+
+            i += 1
+
+        fig.update_layout(
+            polar=dict(
+                radialaxis=dict(
+                    visible=True,
+                )
+            ),
+            showlegend=True,  
+            legend=dict(
+                orientation="v", 
+                yanchor="top",  
+                y=1,  
+                xanchor="left",  
+                x=1.02,  
+            ),
+            width=750,  
+            height=520  
+        )
+
+        st.plotly_chart(fig, use_container_width=True)
+    # # Display team name in the second column
+    # with col2:
+    #     st.title("Test")
+
+    # Create columns for founded, venue, coach, and position
+    # col3, col4, col5, col6 = st.columns(4)
+
 
 # Dictionary mapping page names to functions
 pages_dict = {
